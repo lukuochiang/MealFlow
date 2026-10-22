@@ -1,10 +1,10 @@
-// module.exports = {
-//   devServer: {
-//     proxy: {
-//       '/app-api': {
-//         target: 'http://yshop.l1.ttut.cc/app-api',
-//         changeOrigin: true,
-//       },
-//     },
-//   },
-// }
+module.exports = {
+  devServer: {
+    proxy: {
+      '/app-api': {
+        target: 'http://localhost:48081/app-api',
+        changeOrigin: true,
+      },
+    },
+  },
+}

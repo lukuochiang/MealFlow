@@ -177,7 +177,7 @@ yshop:
     license: MIT
     license-url: https://gitee.com/guchengwuyue/yshop-drink
   captcha:
-    enable: true # 验证码的开关，默认为 true
+    enable: false # 验证码的开关，默认为 true
   codegen:
     base-package: ${yshop.info.base-package}
     db-schemas: ${spring.datasource.dynamic.datasource.master.name}
