@@ -88,7 +88,12 @@
         <el-skeleton :loading="loading" animated>
           <div v-for="(item, index) in notice" :key="`dynamics-${index}`">
             <div class="flex items-center">
-              <img :src="avatar" alt="" class="w-35px h-35px rounded-[50%] mr-20px" />
+              <img
+                :src="avatar"
+                alt=""
+                class="w-35px h-35px rounded-[50%] mr-20px"
+                @error="onAvatarError"
+              />
               <div>
                 <div class="text-14px">
                     {{ item.type == 1 ? '通知' : '公告' }} : {{ item.title }}
@@ -111,9 +116,18 @@ import * as NoticeApi from '@/api/system/notice'
 import PanelGroupT from './PanelGroupT.vue'
 import { formatTime } from '@/utils'
 import { useUserStore } from '@/store/modules/user'
-import avatarImg from '@/assets/imgs/avatar.gif'
+import { DEFAULT_AVATAR, resolveAvatar } from '@/utils'
 const userStore = useUserStore()
-const avatar = userStore.getUser.avatar ? userStore.getUser.avatar : avatarImg
+const avatar = ref(resolveAvatar(userStore.getUser.avatar))
+watch(
+  () => userStore.getUser.avatar,
+  (val) => {
+    avatar.value = resolveAvatar(val)
+  }
+)
+const onAvatarError = () => {
+  avatar.value = DEFAULT_AVATAR
+}
 const { t } = useI18n()
 const count = ref({
         todayPrice: 0,

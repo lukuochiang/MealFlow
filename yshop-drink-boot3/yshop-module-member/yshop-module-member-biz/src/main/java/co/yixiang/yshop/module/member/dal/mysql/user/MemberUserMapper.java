@@ -52,7 +52,7 @@ public interface MemberUserMapper extends BaseMapperX<MemberUserDO> {
     }
 
     @Update("update yshop_user set now_money=now_money-#{payPrice}" +
-            " where id=#{uid}")
+            " where id=#{uid} and now_money >= #{payPrice}")
     int decPrice(@Param("payPrice") BigDecimal payPrice, @Param("uid") Long uid);
 
     @Update("update yshop_user set integral=integral-#{score}" +
@@ -66,5 +66,17 @@ public interface MemberUserMapper extends BaseMapperX<MemberUserDO> {
     @Update("update yshop_user set now_money=now_money+#{price}" +
             " where id=#{uid}")
     int incMoney(@Param("uid") Long uid,@Param("price") BigDecimal price);
+
+    @Update("update yshop_user set brokerage_price=coalesce(brokerage_price,0)+#{price}" +
+            " where id=#{uid}")
+    int incBrokerage(@Param("price") BigDecimal price, @Param("uid") Long uid);
+
+    @Update("update yshop_user set brokerage_price=coalesce(brokerage_price,0)-#{price}" +
+            " where id=#{uid} and coalesce(brokerage_price,0) >= #{price}")
+    int decBrokerage(@Param("price") BigDecimal price, @Param("uid") Long uid);
+
+    @Update("update yshop_user set spread_count=coalesce(spread_count,0)+1" +
+            " where id=#{uid}")
+    int incSpreadCount(@Param("uid") Long uid);
 
 }

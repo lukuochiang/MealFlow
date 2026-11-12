@@ -26,6 +26,23 @@ export const rgbToHex = (r: number, g: number, b: number) => {
 }
 
 /**
+ * 归一化颜色值为 hex。
+ * useCssVar / getComputedStyle 读取 CSS 变量时返回 "rgb(0, 21, 41)" 这类计算值，
+ * 而本文件的工具函数只接受 hex；非 hex/rgb 的值（var(--x)、inherit 等）原样返回。
+ */
+export const normalizeColorToHex = (color: string): string => {
+  if (!color) return color
+  const value = color.trim()
+  if (isHexColor(value)) {
+    return value.length === 4
+      ? `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`
+      : value
+  }
+  const rgb = value.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i)
+  return rgb ? rgbToHex(Number(rgb[1]), Number(rgb[2]), Number(rgb[3])) : value
+}
+
+/**
  * Transform a HEX color to its RGB representation
  * @param {string} hex The color to transform
  * @returns The RGB representation of the passed color
@@ -52,8 +69,9 @@ export const hexToRGB = (hex: string, opacity?: number) => {
 }
 
 export const colorIsDark = (color: string) => {
-  if (!isHexColor(color)) return
-  const [r, g, b] = hexToRGB(color)
+  const hex = normalizeColorToHex(color)
+  if (!isHexColor(hex)) return
+  const [r, g, b] = hexToRGB(hex)
     .replace(/(?:\(|\)|rgb|RGB)*/g, '')
     .split(',')
     .map((item) => Number(item))
@@ -67,7 +85,9 @@ export const colorIsDark = (color: string) => {
  * @returns {string} The HEX representation of the processed color
  */
 export const darken = (color: string, amount: number) => {
-  color = color.indexOf('#') >= 0 ? color.substring(1, color.length) : color
+  const hex = normalizeColorToHex(color)
+  if (!isHexColor(hex)) return color
+  color = hex.substring(1)
   amount = Math.trunc((255 * amount) / 100)
   return `#${subtractLight(color.substring(0, 2), amount)}${subtractLight(
     color.substring(2, 4),
@@ -82,7 +102,9 @@ export const darken = (color: string, amount: number) => {
  * @returns {string} The processed color represented as HEX
  */
 export const lighten = (color: string, amount: number) => {
-  color = color.indexOf('#') >= 0 ? color.substring(1, color.length) : color
+  const hex = normalizeColorToHex(color)
+  if (!isHexColor(hex)) return color
+  color = hex.substring(1)
   amount = Math.trunc((255 * amount) / 100)
   return `#${addLight(color.substring(0, 2), amount)}${addLight(
     color.substring(2, 4),

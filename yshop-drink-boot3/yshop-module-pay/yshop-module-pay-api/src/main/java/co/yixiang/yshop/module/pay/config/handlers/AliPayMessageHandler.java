@@ -6,9 +6,11 @@ import com.egzosn.pay.ali.bean.AliPayMessage;
 import com.egzosn.pay.common.api.PayMessageHandler;
 import com.egzosn.pay.common.bean.PayOutMessage;
 import com.egzosn.pay.common.exception.PayErrorException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.Resource;
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
@@ -16,6 +18,7 @@ import java.util.Map;
  * @author hupeng
  * @date 2023/7/15
  */
+@Slf4j
 @Component
 public class AliPayMessageHandler implements PayMessageHandler<AliPayMessage, AliPayService> {
 
@@ -40,14 +43,31 @@ public class AliPayMessageHandler implements PayMessageHandler<AliPayMessage, Al
         //交易完成
         if ("TRADE_SUCCESS".equals(trade_status) || "TRADE_FINISHED".equals(trade_status)) {
 
-            String orderId = (String) payMessage.getPayMessage().get("out_trade_no");
+            String orderId = (String) message.get("out_trade_no");
+            // 支付宝回调金额单位为元，随消息带入订单侧做金额校验
+            BigDecimal payAmount = parseAmount(message.get("total_amount"));
             //消息队列处理
-            payNoticeProducer.sendPayNoticeMessage(orderId,"alipay");
+            payNoticeProducer.sendPayNoticeMessage(orderId, "alipay", payAmount);
 
             return payService.getPayOutMessage("success", "成功");
 
         }
 
         return payService.getPayOutMessage("fail", "失败");
+    }
+
+    /**
+     * 支付宝回调节点金额单位为元
+     */
+    private BigDecimal parseAmount(Object totalAmount) {
+        if (totalAmount == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(totalAmount.toString());
+        } catch (NumberFormatException e) {
+            log.error("[AliPayMessageHandler] 回调金额解析失败 totalAmount={}", totalAmount);
+            return null;
+        }
     }
 }

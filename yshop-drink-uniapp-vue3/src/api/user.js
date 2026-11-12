@@ -53,3 +53,24 @@ export function balanceGetMoneyList(data) {
 export function balanceRecharge(data) {
   return api.post('/member/user/recharge', data, { login: true })
 }
+
+/**
+ * 绑定推广人（分享注册携带的推荐人）
+ */
+export function brokerageBindSpread(data) {
+  return api.post('/member/user/bind-spread', data, { login: true })
+}
+
+/**
+ * 申请佣金提现
+ */
+export function brokerageWithdrawApply(data) {
+  return api.post('/member/user/brokerage/withdraw/apply', data, { login: true })
+}
+
+/**
+ * 我的佣金提现记录
+ */
+export function brokerageWithdrawList(data) {
+  return api.get('/member/user/brokerage/withdraw/list', data, { login: true })
+}

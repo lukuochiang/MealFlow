@@ -27,5 +27,11 @@ public interface ErrorCodeConstants {
     ErrorCode MINI_AUTH_LOGIN_BAD = new ErrorCode(1004004002, "登录失败，请联系管理员");
     ErrorCode COUPON_NOT_CONDITION = new ErrorCode(1004004003, "此优惠券不满足使用提交");
     ErrorCode MINI_AUTH_LOGIN_BAD2 = new ErrorCode(1004004002, "登录失败，请返回首页刷新重新登录");
+    ErrorCode USER_YUE_NOT = new ErrorCode(1004004004, "余额不足");
+    ErrorCode USER_BROKERAGE_NOT_ENOUGH = new ErrorCode(1004004005, "佣金余额不足");
+    ErrorCode USER_BROKERAGE_WITHDRAW_MIN = new ErrorCode(1004004006, "低于最低提现门槛");
+    ErrorCode USER_SPREAD_SELF = new ErrorCode(1004004007, "不能绑定自己为推荐人");
+    ErrorCode USER_SPREAD_BOUND = new ErrorCode(1004004008, "已绑定推荐人，无法重复绑定");
+    ErrorCode USER_SPREAD_NOT_EXIST = new ErrorCode(1004004009, "推荐人不存在");
 
 }

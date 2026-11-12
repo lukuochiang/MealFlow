@@ -18,6 +18,12 @@ public class SystemConfigConstants {
     public final static String STORE_BROKERAGE_RATIO="store_brokerage_ratio";
     public final static String STORE_BROKERAGE_STATU="store_brokerage_statu";
     public final static String STORE_BROKERAGE_TWO="store_brokerage_two";
+    /** 二级分销佣金比例(%)：当商品未单独设置二级佣金时按此比例计算（需开启二级分销开关） */
+    public final static String STORE_BROKERAGE_TWO_RATIO="store_brokerage_two_ratio";
+    /** 佣金结算时机：1=支付成功即结算，2=确认收货后结算（默认 1） */
+    public final static String STORE_BROKERAGE_SETTLE="store_brokerage_settle";
+    /** 佣金最低提现门槛（元），低于此金额不可提现（默认 100） */
+    public final static String STORE_BROKERAGE_WITHDRAW_MIN="store_brokerage_withdraw_min";
     public final static String STORE_FREE_POSTAGE="store_free_postage";
     public final static String STORE_POSTAGE="store_postage";
     public final static String STORE_SEFL_MENTION="store_self_mention";

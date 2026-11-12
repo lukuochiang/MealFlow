@@ -176,6 +176,22 @@
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff"
           }
+        },
+        {
+          "path": "promotion/commission",
+          "style": {
+            "navigationBarTitleText": "佣金中心",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
+          "path": "promotion/poster",
+          "style": {
+            "navigationBarTitleText": "分享海报",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
         }
       ]
     },

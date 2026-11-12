@@ -87,6 +87,7 @@ export default defineComponent({
             unref(layout) === 'top' || unref(layout) === 'cutMenu' ? false : unref(collapse)
           }
           uniqueOpened={unref(layout) === 'top' ? false : unref(uniqueOpened)}
+          popperClass={`${prefixCls}-popper--${unref(menuMode)}`}
           backgroundColor="var(--left-menu-bg-color)"
           textColor="var(--left-menu-text-color)"
           activeTextColor="var(--left-menu-text-active-color)"
@@ -132,6 +133,12 @@ $prefix-cls: #{$namespace}-menu;
     width: 100% !important;
     border-right: none;
 
+    // Element Plus 图标 SVG 默认 fill 为黑色，须显式跟随菜单文字色，
+    // 否则深色背景上图标会看不见（折叠态只剩图标时尤为明显）
+    svg {
+      fill: currentColor;
+    }
+
     // 设置选中时子标题的颜色
     .is-active {
       & > .#{$elNamespace}-sub-menu__title {
@@ -174,6 +181,16 @@ $prefix-cls: #{$namespace}-menu;
   // 折叠时的最小宽度
   :deep(.#{$elNamespace}-menu--collapse) {
     width: var(--left-menu-min-width);
+
+    // 折叠后仅剩图标，显式指定文字/图标颜色，避免深色文字落在深色背景上不可见
+    .#{$elNamespace}-menu-item,
+    .#{$elNamespace}-sub-menu__title {
+      color: var(--left-menu-text-color);
+
+      svg {
+        color: inherit;
+      }
+    }
 
     & > .is-active,
     & > .is-active > .#{$elNamespace}-sub-menu__title {
@@ -228,6 +245,23 @@ $prefix-cls: #{$namespace}-menu-popper;
 
 .#{$prefix-cls}--vertical,
 .#{$prefix-cls}--horizontal {
+  // 折叠后弹出的子菜单沿用深色菜单配色，避免浅色文字落在默认白色 popper 上不可见
+  background-color: var(--left-menu-bg-color) !important;
+
+  .el-menu,
+  .el-menu--popup {
+    background-color: var(--left-menu-bg-light-color) !important;
+  }
+
+  .el-sub-menu__title,
+  .el-menu-item {
+    color: var(--left-menu-text-color);
+  }
+
+  svg {
+    fill: currentColor;
+  }
+
   // 设置选中时子标题的颜色
   .is-active {
     & > .el-sub-menu__title {

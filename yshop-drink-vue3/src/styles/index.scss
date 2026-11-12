@@ -34,3 +34,82 @@
     border-left-color: var(--el-color-primary);
   }
 }
+
+/* ========== 全局视觉打磨 ========== */
+:root {
+  // 统一圆角与过渡，弱化默认硬朗观感
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+}
+
+html,
+body {
+  // 更克制、现代的滚动条
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.28);
+  }
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// 卡片更轻盈：统一圆角 + 细腻阴影
+.el-card {
+  border: none !important;
+  border-radius: var(--el-border-radius-base) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  &__header {
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    font-weight: 600;
+  }
+}
+
+// 表格头部更柔和，行 hover 更明显
+.el-table {
+  th.el-table__cell {
+    background-color: var(--el-fill-color-light) !important;
+    color: var(--el-text-color-regular);
+    font-weight: 600;
+  }
+
+  .el-table__row {
+    transition: background-color 0.2s ease;
+  }
+}
+
+// 按钮圆角统一
+.el-button {
+  border-radius: var(--el-border-radius-base);
+}
+
+// 弹窗标题区留白更舒适
+.el-dialog__header {
+  margin-right: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+// 表单标签字重，弱化拥挤感
+.el-form-item__label {
+  font-weight: 500;
+}

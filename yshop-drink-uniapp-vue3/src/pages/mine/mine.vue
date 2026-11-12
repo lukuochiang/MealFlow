@@ -79,6 +79,8 @@
 								</template>
 							</uv-cell>
 						</block>
+						<uv-cell :isLink="true" title="佣金中心" @tap="serv({type:'pages',pages:'/pages-user/promotion/commission'})"></uv-cell>
+						<uv-cell :isLink="true" title="分享海报" @tap="serv({type:'pages',pages:'/pages-user/promotion/poster'})"></uv-cell>
 					</uv-cell-group>
 				</view>
 			</view>
@@ -98,7 +100,8 @@ import { formatDateTime,kmUnit } from '@/utils/util'
 import { navigateTo } from '@/utils/route'
 import {
   userGetUserInfo,
-  mineService
+  mineService,
+  brokerageBindSpread
 } from '@/api/user'
 const main = useMainStore()
 const { member,isLogin } = storeToRefs(main)
@@ -120,7 +123,19 @@ onLoad(() => {
 })	
 onShow(() => {
 	getUserInfo();
+	bindSpreadIfNeeded();
 })
+
+// 分享推广：若通过推广链接进入，登录后绑定推荐人
+const bindSpreadIfNeeded = async () => {
+	const spreadUid = uni.getStorageSync('spreadUid')
+	if (isLogin.value && spreadUid) {
+		try {
+			await brokerageBindSpread({ spreadUid: Number(spreadUid) })
+		} catch (e) {}
+		uni.removeStorageSync('spreadUid')
+	}
+}
 
 
 const getUserInfo = async() => {
@@ -227,6 +242,7 @@ page {
 	margin-top: $mine-user-box-margin-top;
 	margin-bottom: $mine-user-box-margin-bottom;
 	border-radius: $mine-user-box-radius;
+	border-top: 8rpx solid $color-primary;
 	box-shadow: $box-shadow;
 
 	&__info {
@@ -265,6 +281,7 @@ page {
 
 		.value {
 			margin-bottom: $mine-stat-value-gap;
+			color: $color-primary;
 		}
 	}
 }

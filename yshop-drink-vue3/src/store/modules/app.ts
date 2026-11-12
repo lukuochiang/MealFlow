@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { store } from '../index'
 import { setCssVar, humpToUnderline } from '@/utils'
+import { colorIsDark } from '@/utils/color'
 import { ElMessage } from 'element-plus'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { ElementPlusSize } from '@/types/elementPlus'
@@ -8,6 +9,34 @@ import { LayoutType } from '@/types/layout'
 import { ThemeTypes } from '@/types/theme'
 
 const { wsCache } = useCache()
+
+/**
+ * 兼容历史主题缓存：早期切换系统主题色时，把 useCssVar 返回的 rgb(...) 计算值
+ * 直接交给 setMenuTheme，而 colorIsDark 当时只识别 hex，深色菜单被误判成浅色，
+ * 于是写入 #333 文字色 / inherit logo 色并持久化，导致折叠后菜单文字、图标
+ * 在深蓝背景上不可见、logo 文字继承成其它颜色。这里按背景明暗做一次纠偏，
+ * 用户无需手动清理浏览器缓存即可恢复。
+ */
+const fixLegacyMenuTheme = (theme: ThemeTypes): ThemeTypes => {
+  const bg = theme?.leftMenuBgColor
+  if (!bg || !colorIsDark(bg)) return theme
+  const fixed: ThemeTypes = { ...theme }
+  const textColor = fixed.leftMenuTextColor
+  if (!textColor || textColor === 'inherit' || colorIsDark(textColor)) {
+    fixed.leftMenuTextColor = '#bfcbd9'
+  }
+  if (
+    !fixed.leftMenuTextActiveColor ||
+    fixed.leftMenuTextActiveColor === 'var(--el-color-primary)'
+  ) {
+    fixed.leftMenuTextActiveColor = '#fff'
+  }
+  const logoColor = fixed.logoTitleTextColor
+  if (!logoColor || logoColor === 'inherit' || colorIsDark(logoColor)) {
+    fixed.logoTitleTextColor = '#fff'
+  }
+  return fixed
+}
 
 interface AppState {
   breadcrumb: boolean
@@ -68,9 +97,17 @@ export const useAppStore = defineStore('app', {
       layout: wsCache.get(CACHE_KEY.LAYOUT) || 'classic', // layout布局
       isDark: wsCache.get(CACHE_KEY.IS_DARK) || false, // 是否是暗黑模式
       currentSize: wsCache.get('default') || 'default', // 组件尺寸
-      theme: wsCache.get(CACHE_KEY.THEME) || {
-        // 主题色
-        elColorPrimary: '#409eff',
+      theme: fixLegacyMenuTheme((wsCache.get(CACHE_KEY.THEME) as ThemeTypes) || {
+        // 主题色（饮品品牌橙）
+        elColorPrimary: '#FF6B35',
+        // 主题色浅/深色变体：Element Plus 运行时只注入基础色，需补齐 light/dark 变体，
+        // 否则按钮 hover、浅底色卡片等仍会是默认蓝，造成色系统一性问题
+        elColorPrimaryLight3: '#FF9772',
+        elColorPrimaryLight5: '#FFB69A',
+        elColorPrimaryLight7: '#FFD3C2',
+        elColorPrimaryLight8: '#FFE1D7',
+        elColorPrimaryLight9: '#FFF0EB',
+        elColorPrimaryDark2: '#CC562A',
         // 左侧菜单边框颜色
         leftMenuBorderColor: 'inherit',
         // 左侧菜单背景颜色
@@ -97,7 +134,7 @@ export const useAppStore = defineStore('app', {
         topHeaderHoverColor: '#f6f6f6',
         // 头部边框颜色
         topToolBorderColor: '#eee'
-      }
+      })
     }
   },
   getters: {

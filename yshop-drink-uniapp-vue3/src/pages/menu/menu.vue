@@ -1004,9 +1004,11 @@ page {
 						flex-direction: column;
 
 						.good {
+							position: relative;
 							display: flex;
 							align-items: center;
 							padding: 15rpx 0;
+							@include list-divider;
 
 							.image {
 								width: $menu-good-image-size;

@@ -15,13 +15,20 @@ import co.yixiang.yshop.module.member.dal.dataobject.user.MemberUserDO;
 import co.yixiang.yshop.module.member.dal.dataobject.userbill.UserBillDO;
 import co.yixiang.yshop.module.member.dal.mysql.user.MemberUserMapper;
 import co.yixiang.yshop.module.member.dal.mysql.userbill.UserBillMapper;
+import co.yixiang.yshop.framework.common.constant.SystemConfigConstants;
+import co.yixiang.yshop.module.infra.dal.dataobject.config.ConfigDO;
+import co.yixiang.yshop.module.infra.service.config.ConfigService;
+import co.yixiang.yshop.module.member.dal.dataobject.userbill.UserBrokerageWithdrawDO;
+import co.yixiang.yshop.module.member.dal.mysql.userbill.UserBrokerageWithdrawMapper;
 import co.yixiang.yshop.module.member.enums.BillDetailEnum;
+import co.yixiang.yshop.module.member.enums.ErrorCodeConstants;
 import co.yixiang.yshop.module.member.service.userbill.UserBillService;
 import co.yixiang.yshop.module.system.api.sms.SmsCodeApi;
 import co.yixiang.yshop.module.system.api.sms.dto.code.SmsCodeUseReqDTO;
 import co.yixiang.yshop.module.system.enums.sms.SmsSceneEnum;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
@@ -41,6 +48,7 @@ import java.util.List;
 import static co.yixiang.yshop.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static co.yixiang.yshop.framework.common.util.servlet.ServletUtils.getClientIP;
 import static co.yixiang.yshop.module.member.enums.ErrorCodeConstants.USER_NOT_EXISTS;
+import static co.yixiang.yshop.module.member.enums.ErrorCodeConstants.USER_YUE_NOT;
 
 /**
  * 会员 User Service 实现类
@@ -68,6 +76,10 @@ public class MemberUserServiceImpl extends ServiceImpl<MemberUserMapper,MemberUs
     private UserBillMapper userBillMapper;
     @Resource
     private UserBillService billService;
+    @Resource
+    private ConfigService configService;
+    @Resource
+    private UserBrokerageWithdrawMapper withdrawMapper;
 
 
 
@@ -153,7 +165,12 @@ public class MemberUserServiceImpl extends ServiceImpl<MemberUserMapper,MemberUs
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void decPrice(Long uid, BigDecimal payPrice) {
-        memberUserMapper.decPrice(payPrice,uid);
+        // 并发安全：SQL 已加 now_money >= payPrice 行级守卫，仅余额充足时才会真正扣减；
+        // 影响行数为 0 表示余额不足（可能被并发请求先扣），抛出余额不足而非产生负数余额
+        int rows = memberUserMapper.decPrice(payPrice, uid);
+        if (rows == 0) {
+            throw exception(USER_YUE_NOT);
+        }
     }
 
     /**
@@ -244,6 +261,105 @@ public class MemberUserServiceImpl extends ServiceImpl<MemberUserMapper,MemberUs
         if(price!=null&&price.doubleValue()>0){
             memberUserMapper.incMoney(uid,price);
         }
+    }
+
+    @Override
+    public void incBrokerage(Long uid, BigDecimal price) {
+        if (price != null && price.doubleValue() > 0) {
+            memberUserMapper.incBrokerage(price, uid);
+        }
+    }
+
+    @Override
+    public void decBrokerage(Long uid, BigDecimal price) {
+        if (price != null && price.doubleValue() > 0) {
+            // SQL 已加 brokerage_price >= price 守卫，影响行数为 0 说明佣金不足
+            int rows = memberUserMapper.decBrokerage(price, uid);
+            if (rows == 0) {
+                throw exception(ErrorCodeConstants.USER_BROKERAGE_NOT_ENOUGH);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void bindSpread(Long uid, Long spreadUid) {
+        if (spreadUid == null || spreadUid.equals(uid)) {
+            throw exception(ErrorCodeConstants.USER_SPREAD_SELF);
+        }
+        MemberUserDO user = getUser(uid);
+        if (user.getSpreadUid() != null) {
+            throw exception(ErrorCodeConstants.USER_SPREAD_BOUND);
+        }
+        MemberUserDO spread = getUser(spreadUid);
+        if (spread == null) {
+            throw exception(ErrorCodeConstants.USER_SPREAD_NOT_EXIST);
+        }
+        user.setSpreadUid(spreadUid);
+        user.setSpreadTime(LocalDateTime.now());
+        memberUserMapper.updateById(user);
+        memberUserMapper.incSpreadCount(spreadUid);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void applyBrokerageWithdraw(Long uid, BigDecimal price) {
+        MemberUserDO user = getUser(uid);
+        if (price == null || price.doubleValue() <= 0) {
+            throw exception(ErrorCodeConstants.USER_BROKERAGE_NOT_ENOUGH);
+        }
+        // 最低提现门槛（可配置，默认 100）
+        ConfigDO cfg = configService.getConfigByKey(SystemConfigConstants.STORE_BROKERAGE_WITHDRAW_MIN);
+        String minStr = cfg == null ? null : cfg.getValue();
+        BigDecimal min = StrUtil.isBlank(minStr) ? new BigDecimal("100") : new BigDecimal(minStr);
+        if (price.compareTo(min) < 0) {
+            throw exception(ErrorCodeConstants.USER_BROKERAGE_WITHDRAW_MIN);
+        }
+        if (user.getBrokeragePrice() == null || user.getBrokeragePrice().compareTo(price) < 0) {
+            throw exception(ErrorCodeConstants.USER_BROKERAGE_NOT_ENOUGH);
+        }
+        UserBrokerageWithdrawDO withdraw = new UserBrokerageWithdrawDO();
+        withdraw.setUid(uid);
+        withdraw.setPrice(price);
+        withdraw.setStatus(0);
+        withdrawMapper.insert(withdraw);
+    }
+
+    @Override
+    public List<UserBrokerageWithdrawDO> getBrokerageWithdrawList(Long uid) {
+        return withdrawMapper.selectList(Wrappers.<UserBrokerageWithdrawDO>lambdaQuery()
+                .eq(UserBrokerageWithdrawDO::getUid, uid)
+                .orderByDesc(UserBrokerageWithdrawDO::getId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void approveBrokerageWithdraw(Long id, String mark) {
+        UserBrokerageWithdrawDO withdraw = withdrawMapper.selectById(id);
+        if (withdraw == null || withdraw.getStatus() != 0) {
+            return;
+        }
+        // 先扣减佣金（带余额守卫），再产生提现账单
+        decBrokerage(withdraw.getUid(), withdraw.getPrice());
+        MemberUserDO user = getUser(withdraw.getUid());
+        billService.expend(user.getId(), "佣金提现", BillDetailEnum.CATEGORY_1.getValue(),
+                BillDetailEnum.TYPE_4.getValue(), withdraw.getPrice().doubleValue(),
+                user.getBrokeragePrice().doubleValue(), "佣金提现" + withdraw.getPrice() + "元");
+        withdraw.setStatus(1);
+        withdraw.setMark(mark);
+        withdrawMapper.updateById(withdraw);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectBrokerageWithdraw(Long id, String mark) {
+        UserBrokerageWithdrawDO withdraw = withdrawMapper.selectById(id);
+        if (withdraw == null || withdraw.getStatus() != 0) {
+            return;
+        }
+        withdraw.setStatus(-1);
+        withdraw.setMark(mark);
+        withdrawMapper.updateById(withdraw);
     }
 
 

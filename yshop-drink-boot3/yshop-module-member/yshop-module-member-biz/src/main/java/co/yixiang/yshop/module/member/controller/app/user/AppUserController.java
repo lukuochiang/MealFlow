@@ -18,7 +18,10 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
+
+import co.yixiang.yshop.module.member.dal.dataobject.userbill.UserBrokerageWithdrawDO;
 
 import static co.yixiang.yshop.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static co.yixiang.yshop.framework.common.pojo.CommonResult.success;
@@ -111,6 +114,29 @@ public class AppUserController {
                                                          @RequestParam(value = "page", defaultValue = "1") int page,
                                                          @RequestParam(value = "pagesize", defaultValue = "10") int pagesize) {
         return success(userBillService.getBillList(getLoginUserId(),cate,type,page,pagesize));
+    }
+
+    @PostMapping("/bind-spread")
+    @Operation(summary = "绑定推广人（通过分享链接/海报注册时携带的推荐人）")
+    @PreAuthenticated
+    public CommonResult<Boolean> bindSpread(@RequestParam("spreadUid") Long spreadUid) {
+        userService.bindSpread(getLoginUserId(), spreadUid);
+        return success(true);
+    }
+
+    @PostMapping("/brokerage/withdraw/apply")
+    @Operation(summary = "申请佣金提现")
+    @PreAuthenticated
+    public CommonResult<Boolean> applyBrokerageWithdraw(@RequestParam("price") BigDecimal price) {
+        userService.applyBrokerageWithdraw(getLoginUserId(), price);
+        return success(true);
+    }
+
+    @GetMapping("/brokerage/withdraw/list")
+    @Operation(summary = "我的佣金提现记录")
+    @PreAuthenticated
+    public CommonResult<List<UserBrokerageWithdrawDO>> getBrokerageWithdrawList() {
+        return success(userService.getBrokerageWithdrawList(getLoginUserId()));
     }
 
 

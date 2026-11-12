@@ -5,7 +5,7 @@
   >
     <div class="relative h-full flex mx-auto">
       <div
-        :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px <xl:hidden`"
+        :class="`${prefixCls}__left flex-1 bg-gradient-to-br from-[#FF6B35] to-[#FF9772] relative p-30px <xl:hidden`"
       >
         <!-- 左上角的 logo + 系统标题 -->
         <div class="flex items-center relative text-white">

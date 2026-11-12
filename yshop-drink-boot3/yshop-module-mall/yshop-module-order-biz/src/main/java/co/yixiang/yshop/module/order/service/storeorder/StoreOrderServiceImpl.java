@@ -331,8 +331,23 @@ public class StoreOrderServiceImpl implements StoreOrderService {
                 }
             }
             storeOrderDO.setOutTradeNo(orderSn);
-        }else if (PayTypeEnum.ALI.getValue().equals(storeOrderDO.getPayType())){
-            throw exception(new ErrorCode(999997,"支付宝暂时不支持退款"));
+        } else if (PayTypeEnum.ALI.getValue().equals(storeOrderDO.getPayType())) {
+            if (isDemo) {
+                throw exception(new ErrorCode(888889, "演示模式无法支付宝退款的哦！"));
+            }
+            // 支付宝退款：各 ali_* 配置共用同一 partner，复用 ali_h5 配置发起退款
+            RefundOrder refundOrder = new RefundOrder(orderSn, "", storeOrderDO.getOrderId(), price, storeOrderDO.getPayPrice());
+            RefundResult refundResult = manager.refund(PayIdEnum.ALI_H5.getValue(), refundOrder);
+            if (refundResult.getCode().equals("FAIL")) {
+                log.error("支付宝退款错误：{}", refundResult.getMsg());
+                throw exception(new ErrorCode(999999, refundResult.getMsg()));
+            } else {
+                if (refundResult.getResultCode() != null && refundResult.getResultCode().equals("FAIL")) {
+                    log.error("支付宝退款错误：{}", refundResult.getResultMsg());
+                    throw exception(new ErrorCode(999998, refundResult.getResultMsg()));
+                }
+            }
+            storeOrderDO.setOutTradeNo(orderSn);
         }
         storeOrderMapper.updateById(storeOrderDO);
         //增加流水

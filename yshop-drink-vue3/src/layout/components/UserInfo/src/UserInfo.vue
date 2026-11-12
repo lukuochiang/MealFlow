@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ElMessageBox } from 'element-plus'
 
-import avatarImg from '@/assets/imgs/avatar.gif'
+import { DEFAULT_AVATAR, resolveAvatar } from '@/utils'
 import { useDesign } from '@/hooks/web/useDesign'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useUserStore } from '@/store/modules/user'
@@ -23,7 +23,18 @@ const { getPrefixCls } = useDesign()
 
 const prefixCls = getPrefixCls('user-info')
 
-const avatar = computed(() => userStore.user.avatar ?? avatarImg)
+// 后端可能下发已失效的头像 URL（如初始化数据里的 app2.yixiang.co 旧地址），
+// 加载失败时自动回退到本地默认头像；用户后续更新头像会重新生效
+const avatar = ref(resolveAvatar(userStore.user.avatar))
+watch(
+  () => userStore.user.avatar,
+  (val) => {
+    avatar.value = resolveAvatar(val)
+  }
+)
+const onAvatarError = () => {
+  avatar.value = DEFAULT_AVATAR
+}
 const userName = computed(() => userStore.user.nickname ?? 'Admin')
 
 // 锁定屏幕
@@ -57,7 +68,12 @@ const toDocument = () => {
 <template>
   <ElDropdown class="custom-hover" :class="prefixCls" trigger="click">
     <div class="flex items-center">
-      <ElAvatar :src="avatar" alt="" class="w-[calc(var(--logo-height)-25px)] rounded-[50%]" />
+      <ElAvatar
+        :src="avatar"
+        alt=""
+        class="w-[calc(var(--logo-height)-25px)] rounded-[50%]"
+        @error="onAvatarError"
+      />
       <span class="pl-[5px] text-14px text-[var(--top-header-text-color)] <lg:hidden">
         {{ userName }}
       </span>

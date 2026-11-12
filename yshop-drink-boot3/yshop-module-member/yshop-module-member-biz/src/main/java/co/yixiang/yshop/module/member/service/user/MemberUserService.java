@@ -140,6 +140,51 @@ public interface MemberUserService extends IService<MemberUserDO> {
      */
     void incMoney(Long uid,BigDecimal price);
 
+    /**
+     * 增加用户佣金金额
+     * @param uid 用户id
+     * @param price 佣金
+     */
+    void incBrokerage(Long uid, BigDecimal price);
 
+    /**
+     * 扣减用户佣金金额（SQL 带余额守卫，防止超额）
+     * @param uid 用户id
+     * @param price 佣金
+     */
+    void decBrokerage(Long uid, BigDecimal price);
+
+    /**
+     * 绑定推广关系（上级推荐人）
+     * @param uid 当前用户
+     * @param spreadUid 推荐人 uid
+     */
+    void bindSpread(Long uid, Long spreadUid);
+
+    /**
+     * 申请佣金提现
+     * @param uid 用户id
+     * @param price 提现金额
+     */
+    void applyBrokerageWithdraw(Long uid, BigDecimal price);
+
+    /**
+     * 获得用户佣金提现记录列表
+     */
+    java.util.List<co.yixiang.yshop.module.member.dal.dataobject.userbill.UserBrokerageWithdrawDO> getBrokerageWithdrawList(Long uid);
+
+    /**
+     * 审核通过佣金提现
+     * @param id 提现记录 id
+     * @param mark 审核备注
+     */
+    void approveBrokerageWithdraw(Long id, String mark);
+
+    /**
+     * 审核拒绝佣金提现
+     * @param id 提现记录 id
+     * @param mark 审核备注
+     */
+    void rejectBrokerageWithdraw(Long id, String mark);
 
 }

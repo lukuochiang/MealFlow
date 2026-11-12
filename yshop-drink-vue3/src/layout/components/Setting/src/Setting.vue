@@ -6,7 +6,7 @@ import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { useDesign } from '@/hooks/web/useDesign'
 
 import { setCssVar, trim } from '@/utils'
-import { colorIsDark, hexToRGB, lighten } from '@/utils/color'
+import { colorIsDark, hexToRGB, lighten, normalizeColorToHex } from '@/utils/color'
 import { useAppStore } from '@/store/modules/app'
 import { ThemeSwitch } from '@/layout/components/ThemeSwitch'
 import ColorRadioPicker from './components/ColorRadioPicker.vue'
@@ -59,23 +59,28 @@ const setHeaderTheme = (color: string) => {
 const menuTheme = ref(appStore.getTheme.leftMenuBgColor || '')
 
 const setMenuTheme = (color: string) => {
-  const primaryColor = useCssVar('--el-color-primary', document.documentElement)
-  const isDarkColor = colorIsDark(color)
+  // useCssVar 返回的是 rgb(...) 计算值，必须先归一化为 hex，
+  // 否则下方明暗判定会失败，把深色菜单写成 #333 文字色（折叠后图标/文字不可见）
+  const menuBgColor = normalizeColorToHex(color)
+  const primaryColor = normalizeColorToHex(
+    trim(unref(useCssVar('--el-color-primary', document.documentElement)))
+  )
+  const isDarkColor = colorIsDark(menuBgColor)
   const theme: Recordable = {
     // 左侧菜单边框颜色
     leftMenuBorderColor: isDarkColor ? 'inherit' : '#eee',
     // 左侧菜单背景颜色
-    leftMenuBgColor: color,
+    leftMenuBgColor: menuBgColor,
     // 左侧菜单浅色背景颜色
-    leftMenuBgLightColor: isDarkColor ? lighten(color!, 6) : color,
+    leftMenuBgLightColor: isDarkColor ? lighten(menuBgColor, 6) : menuBgColor,
     // 左侧菜单选中背景颜色
     leftMenuBgActiveColor: isDarkColor
       ? 'var(--el-color-primary)'
-      : hexToRGB(unref(primaryColor), 0.1),
+      : hexToRGB(primaryColor, 0.1),
     // 左侧菜单收起选中背景颜色
     leftMenuCollapseBgActiveColor: isDarkColor
       ? 'var(--el-color-primary)'
-      : hexToRGB(unref(primaryColor), 0.1),
+      : hexToRGB(primaryColor, 0.1),
     // 左侧菜单字体颜色
     leftMenuTextColor: isDarkColor ? '#bfcbd9' : '#333',
     // 左侧菜单选中字体颜色
@@ -83,7 +88,7 @@ const setMenuTheme = (color: string) => {
     // logo字体颜色
     logoTitleTextColor: isDarkColor ? '#fff' : 'inherit',
     // logo边框颜色
-    logoBorderColor: isDarkColor ? color : '#eee'
+    logoBorderColor: isDarkColor ? menuBgColor : '#eee'
   }
   appStore.setTheme(theme)
   appStore.setCssVarTheme()

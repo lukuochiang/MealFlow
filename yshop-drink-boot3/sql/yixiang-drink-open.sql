@@ -12488,7 +12488,7 @@ CREATE TABLE `system_users` (
 -- Records of system_users
 -- ----------------------------
 BEGIN;
-INSERT INTO `system_users` VALUES (1, 'admin', '$2a$10$mRMIYLDtRHlf6.9ipiqH1.Z.bh/R9dO9d5iHiGYPigi6r5KOoR2Wm', 'yshop', '管理员', 103, '[1]', 'yshop@yixaing.co', '18000000000', 1, 'https://app2.yixiang.co/avatar/20200705181403641316.png', 0, '0:0:0:0:0:0:0:1', '2025-11-03 09:35:17', 'admin', '2021-01-05 17:03:47', NULL, '2025-11-03 09:35:17', b'0', 1);
+INSERT INTO `system_users` VALUES (1, 'admin', '$2a$10$mRMIYLDtRHlf6.9ipiqH1.Z.bh/R9dO9d5iHiGYPigi6r5KOoR2Wm', 'yshop', '管理员', 103, '[1]', 'yshop@yixaing.co', '18000000000', 1, '', 0, '0:0:0:0:0:0:0:1', '2025-11-03 09:35:17', 'admin', '2021-01-05 17:03:47', NULL, '2025-11-03 09:35:17', b'0', 1);
 INSERT INTO `system_users` VALUES (100, 'yshop', '$2a$10$11U48RhyJ5pSBYWSn12AD./ld671.ycSzJHbyrtpeoMeYiw31eo8a', 'yixiang', '不要吓我', 104, '[1]', 'yshop@iocoder.cn', '15601691300', 1, '', 0, '127.0.0.1', '2022-07-09 23:03:33', '', '2021-01-07 09:07:17', '1', '2023-08-06 10:11:13', b'0', 1);
 INSERT INTO `system_users` VALUES (126, 'yixiang001', '$2a$04$JTIqo.OqDIy/QnGD8DyalOuD2S10Rdz20abG1Vw7uaU5xDjBqEWky', '意向餐饮管理员', '', 110, '[]', '', '18888888888', 0, '', 0, '0:0:0:0:0:0:0:1', '2023-10-07 11:05:53', '1', '2023-09-05 10:23:17', NULL, '2023-10-07 11:05:53', b'0', 0);
 COMMIT;

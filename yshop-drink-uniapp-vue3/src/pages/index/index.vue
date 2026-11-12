@@ -23,9 +23,10 @@
 	<view class="container index-page">
 			<view class="index-banner">
 				<uv-swiper class="index-banner__swiper" height="300" imgMode="aspectFill" keyName="image" :list="listAds" indicatorMode="dot" indicatorStyle="bottom"></uv-swiper>
+				<view class="index-banner__mask"></view>
 				<view class="index-banner__intro">
 					<view class="index-banner__greet">您好，{{ isLogin ? member.nickname : '游客' }}</view>
-					<view class="index-banner__note">java-springboot-意向点餐外卖系统</view>
+					<view class="index-banner__note">MealFlow 饮品点单 · 新鲜现做</view>
 				</view>
 			</view>
 			<view class="index-content">
@@ -147,8 +148,11 @@ const goScore = () => {
 
 
 
-onLoad(() => {
- // main.init()
+onLoad((options) => {
+  // 记录分享推广人，登录后在「我的」页绑定
+  if (options && options.spreadUid) {
+    uni.setStorageSync('spreadUid', options.spreadUid)
+  }
   handGetListAds()
 })
 
@@ -189,6 +193,8 @@ page {
 			position: absolute;
 			top: calc(#{$index-intro-offset-y} + var(--status-bar-height));
 			left: $index-intro-offset-x;
+			right: $index-intro-offset-x;
+			z-index: 2;
 			color: $text-color-white;
 			display: flex;
 			flex-direction: column;
@@ -196,11 +202,25 @@ page {
 
 		&__greet {
 			font-size: $font-size-lg;
+			font-weight: 600;
 			margin-bottom: $index-gap-sm;
+			text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.35);
 		}
 
 		&__note {
 			font-size: $font-size-sm;
+			text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.35);
+		}
+
+		&__mask {
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: 0;
+			bottom: 0;
+			z-index: 1;
+			background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 42%);
+			pointer-events: none;
 		}
 	}
 
@@ -213,14 +233,22 @@ page {
 
 		&__item {
 			width: var(--index-menu-item-width);
-			padding-bottom: $spacing-row-lg;
+			padding: $spacing-row-lg 0;
 			background-color: $text-color-white;
+			border-radius: 20rpx;
+			box-shadow: $box-shadow;
+			transition: transform 0.15s ease;
+
+			&:active {
+				transform: scale(0.97);
+			}
 		}
 
 		&__icon {
-			width: 100rpx;
-			height: 100rpx;
-			margin-top: $spacing-row-lg;
+			width: 96rpx;
+			height: 96rpx;
+			margin-top: $spacing-row-base;
+			border-radius: 50%;
 		}
 	}
 
@@ -271,6 +299,9 @@ page {
 			justify-content: center;
 			font-size: $font-size-sm;
 			color: $color-primary;
+			padding: 10rpx 26rpx;
+			border-radius: 999rpx;
+			background-color: rgba($color-primary, 0.1);
 
 			&--with-icon {
 				flex-direction: column;

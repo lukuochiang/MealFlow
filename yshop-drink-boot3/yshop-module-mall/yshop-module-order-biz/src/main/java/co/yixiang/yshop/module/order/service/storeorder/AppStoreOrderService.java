@@ -61,6 +61,14 @@ public interface AppStoreOrderService extends IService<StoreOrderDO> {
      */
     void paySuccess(String orderId,String payType);
 
+    /**
+     * 第三方支付回调成功后操作（带网关金额校验，防篡改/错账）
+     * @param orderId 订单号
+     * @param payType 支付方式
+     * @param payAmount 网关实际支付金额（单位：元）
+     */
+    void paySuccess(String orderId, String payType, BigDecimal payAmount);
+
 
     /**
      * 订单列表

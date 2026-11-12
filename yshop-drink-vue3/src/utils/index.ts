@@ -1,4 +1,18 @@
 import { toNumber } from 'lodash-es'
+import defaultAvatarImg from '@/assets/imgs/avatar.jpg'
+
+/** 系统默认头像：替换已失效的 https://app2.yixiang.co/avatar/*.png 远程图片 */
+export const DEFAULT_AVATAR = defaultAvatarImg
+
+/**
+ * 规范化用户头像地址：空值、以及历史初始化数据里已失效的旧默认头像，
+ * 一律返回系统内置默认头像，避免页面出现裂图。
+ */
+export const resolveAvatar = (avatar?: string | null): string => {
+  if (!avatar) return DEFAULT_AVATAR
+  if (avatar.startsWith('https://app2.yixiang.co/avatar/')) return DEFAULT_AVATAR
+  return avatar
+}
 
 /**
  *

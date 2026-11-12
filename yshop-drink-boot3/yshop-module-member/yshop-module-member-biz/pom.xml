@@ -43,6 +43,11 @@
             <artifactId>yshop-module-shop-biz</artifactId>
             <version>${revision}</version>
         </dependency>
+        <dependency>
+            <groupId>co.yixiang.boot</groupId>
+            <artifactId>yshop-module-infra-biz</artifactId>
+            <version>${revision}</version>
+        </dependency>
 
         <!-- 业务组件 -->
         <dependency>

@@ -13,23 +13,37 @@ const IMG = '/static/images/new002.jpg'
 const ICON = '/static/images/new003.jpg'
 const STORE_IMG = '/static/images/index003.png'
 const AVATAR = '/static/images/mine/default.png'
-const AD_IMG = '/static/images/index002.png'
+const BANNER_1 = '/static/images/banner1.png'
+const BANNER_2 = '/static/images/banner2.png'
+const BANNER_3 = '/static/images/banner3.png'
 
 /* ---------------- 示例数据 ---------------- */
 
 function makeProduct(id, name, price, desc) {
+  const attrSpec = ['中杯', '大杯']
+  const attrTemp = ['热', '冰', '去冰']
+  // 构造与后端一致的 SKU 映射：productValue["规格,温度"] = { price, stock, image }
+  const productValue = {}
+  attrSpec.forEach((s) => {
+    attrTemp.forEach((t) => {
+      productValue[`${s},${t}`] = { price: String(price), stock: 99, image: IMG }
+    })
+  })
   return {
     id,
-    name,
+    storeName: name,
+    storeInfo: desc,
     image: IMG,
     price,
     stock: 99,
     description: desc,
     sales: Math.floor(Math.random() * 500),
+    cartNum: 0,
     productAttr: [
-      { attrName: '规格', attrValueArr: ['中杯', '大杯'] },
-      { attrName: '温度', attrValueArr: ['热', '冰', '去冰'] },
+      { attrName: '规格', attrValueArr: attrSpec },
+      { attrName: '温度', attrValueArr: attrTemp },
     ],
+    productValue,
   }
 }
 
@@ -43,7 +57,9 @@ const demoStore = {
   image: STORE_IMG,
   deliveryPrice: 5,
   min_price: 20,
-  distance: 0,
+  distance: 2,
+  dis: 2,
+  far: 5,
   address: '示例市示例区示例路 1 号',
   phone: '400-000-0000',
 }
@@ -104,8 +120,9 @@ const demoServices = [
 
 const demoAds = {
   list: [
-    { id: 1, image: AD_IMG, url: '' },
-    { id: 2, image: STORE_IMG, url: '' },
+    { id: 1, image: BANNER_1, url: '' },
+    { id: 2, image: BANNER_2, url: '' },
+    { id: 3, image: BANNER_3, url: '' },
   ],
   isActive: true,
 }

@@ -633,6 +633,9 @@ const weixinPay = async(order) => {
 	}
 	
 	// #endif
+	// #ifdef APP-PLUS
+	from = 'app'
+	// #endif
 	//let that = this;
 	let data = await payUnify({
 		uni: order.orderId,
@@ -709,10 +712,44 @@ const weixinPay = async(order) => {
 		}
 		// #endif
 	} else if (data.trade_type == 'APP') {
-		// APP 端微信支付：需由原生层调起，当前工程主要面向 H5 / 小程序，暂留空
+		// #ifdef APP-PLUS
+		// 微信APP支付：orderInfo 为后端返回的 APP 预支付参数（appid/partnerid/prepayid 等）
+		uni.requestPayment({
+			provider: 'wxpay',
+			orderInfo: JSON.stringify(data.data),
+			success: function () {
+				uni.removeStorageSync('cart');
+				uni.switchTab({ url: '/pages/order/order' });
+			},
+			fail: function (err) {
+				console.log('WXAppPay fail:' + JSON.stringify(err));
+			}
+		});
+		// #endif
 	}
 }
 const aliPay = async(order) => {
+
+	// #ifdef APP-PLUS
+	// 支付宝APP支付：后端返回已签名订单串，直接交给 uni 拉起支付宝 SDK
+	let appData = await payUnify({
+		uni: order.orderId,
+		from: 'app',
+		paytype: 'alipay'
+	});
+	uni.requestPayment({
+		provider: 'alipay',
+		orderInfo: appData.data,
+		success: function () {
+			uni.removeStorageSync('cart');
+			uni.switchTab({ url: '/pages/order/order' });
+		},
+		fail: function (err) {
+			console.log('AliAppPay fail:' + JSON.stringify(err));
+		}
+	});
+	return;
+	// #endif
 
 	// #ifdef H5
 	//let that = this;

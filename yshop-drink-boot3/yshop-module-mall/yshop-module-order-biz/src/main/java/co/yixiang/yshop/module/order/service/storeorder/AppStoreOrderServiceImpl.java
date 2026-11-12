@@ -7,6 +7,10 @@ import cn.hutool.core.util.StrUtil;
 import co.yixiang.yshop.framework.common.constant.ShopConstants;
 import co.yixiang.yshop.framework.common.enums.OrderInfoEnum;
 import co.yixiang.yshop.framework.common.enums.PayIdEnum;
+import co.yixiang.yshop.framework.common.constant.SystemConfigConstants;
+import co.yixiang.yshop.module.infra.dal.dataobject.config.ConfigDO;
+import co.yixiang.yshop.module.infra.service.config.ConfigService;
+import java.math.RoundingMode;
 import co.yixiang.yshop.framework.common.enums.ShopCommonEnum;
 import co.yixiang.yshop.framework.common.exception.ErrorCode;
 import co.yixiang.yshop.framework.tenant.core.aop.TenantIgnore;
@@ -108,6 +112,8 @@ public class AppStoreOrderServiceImpl extends ServiceImpl<StoreOrderMapper,Store
     private UserBillService billService;
     @Resource
     private PayServiceManager manager;
+    @Resource
+    private ConfigService configService;
     @Resource
     private WeixinNoticeProducer weixinNoticeProducer;
     @Resource
@@ -404,6 +410,11 @@ public class AppStoreOrderServiceImpl extends ServiceImpl<StoreOrderMapper,Store
                     payOrder.setOpenid(memberUserDO.getOpenid());
                     map.put("data",manager.getOrderInfo(payOrder));
                     map.put("trade_type","W-JSAPI");
+                } else if (AppFromEnum.APP.getValue().equals(param.getFrom())) {//微信APP
+                    MerchantPayOrder payOrder = new MerchantPayOrder(PayIdEnum.WX_APP.getValue(), "APP", msg,
+                            msg, price, param.getUni());
+                    map.put("data", manager.getOrderInfo(payOrder));
+                    map.put("trade_type", "APP");
                 } else {//微信小程序
                     MerchantPayOrder payOrder = new MerchantPayOrder(PayIdEnum.WX_MINIAPP.getValue(), "JSAPI", msg,
                             msg, price, param.getUni());
@@ -418,17 +429,28 @@ public class AppStoreOrderServiceImpl extends ServiceImpl<StoreOrderMapper,Store
                 map.put("status","ok");
                 break;
             case ALI:
-                //h5支付
-                detailsId = PayIdEnum.ALI_H5.getValue();
-                //todo 如果启用支付宝H5支付充值 需要另外增加一个配置用于同步跳转页面 比如下面的增加了一个id=6的配置
+                if (AppFromEnum.APP.getValue().equals(param.getFrom())) {
+                    // 支付宝APP支付
+                    detailsId = PayIdEnum.ALI_APP.getValue();
+                    MerchantPayOrder payOrder = new MerchantPayOrder(detailsId, "APP", msg,
+                            msg, price, param.getUni());
+                    map.put("data", manager.toPay(payOrder));
+                    map.put("trade_type", "APP");
+                } else {
+                    //h5支付
+                    detailsId = PayIdEnum.ALI_H5.getValue();
+                    //todo 如果启用支付宝H5支付充值 需要另外增加一个配置用于同步跳转页面 比如下面的增加了一个id=6的配置
 //                if(orderInfo != null) {
 //                    detailsId = "1";
 //                }else{
 //                    detailsId = "6";
 //                }
-                MerchantPayOrder payOrder = new MerchantPayOrder(detailsId, "WAP", msg,
-                        msg, price, param.getUni());
-                map.put("data",manager.toPay(payOrder));
+                    MerchantPayOrder payOrder = new MerchantPayOrder(detailsId, "WAP", msg,
+                            msg, price, param.getUni());
+                    map.put("data", manager.toPay(payOrder));
+                    map.put("trade_type", "WAP");
+                }
+                break;
 
             default:
         }
@@ -497,18 +519,34 @@ public class AppStoreOrderServiceImpl extends ServiceImpl<StoreOrderMapper,Store
             return;
         }
 
-        //更新订单状态
+        // 幂等保护：已支付则忽略重复回调/重试，避免重复记账
+        if (OrderInfoEnum.PAY_STATUS_1.getValue().equals(orderInfo.getPaid())) {
+            log.warn("[paySuccess] 订单[{}]已支付，忽略重复回调", orderId);
+            return;
+        }
+
+        // 更新订单状态（仅在未支付时更新，防止并发/重试重复记账）
         LambdaQueryWrapper<StoreOrderDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(StoreOrderDO::getOrderId, orderId);
+        wrapper.eq(StoreOrderDO::getOrderId, orderId)
+               .eq(StoreOrderDO::getPaid, OrderInfoEnum.PAY_STATUS_0.getValue());
         StoreOrderDO storeOrder = new StoreOrderDO();
         storeOrder.setPaid(OrderInfoEnum.PAY_STATUS_1.getValue());
         storeOrder.setPayType(payType);
         storeOrder.setPayTime(LocalDateTime.now());
 
-        this.update(storeOrder, wrapper);
+        boolean updated = this.update(storeOrder, wrapper);
+        if (!updated) {
+            log.warn("[paySuccess] 订单[{}]状态更新失败，可能已被其他回调处理，忽略", orderId);
+            return;
+        }
 
         //增加用户购买次数
         userService.incPayCount(orderInfo.getUid());
+
+        // 分销佣金结算（结算时机=支付成功）
+        if (getSettleMode() == 1) {
+            settleBrokerage(orderInfo.getOrderId());
+        }
         //增加状态
         storeOrderStatusService.create(orderInfo.getUid(),orderInfo.getId(), OrderLogEnum.PAY_ORDER_SUCCESS.getValue(),
                 OrderLogEnum.PAY_ORDER_SUCCESS.getDesc());
@@ -548,6 +586,32 @@ public class AppStoreOrderServiceImpl extends ServiceImpl<StoreOrderMapper,Store
         }
 
 
+    }
+
+    /**
+     * 第三方支付回调成功后操作（带网关金额校验，防篡改/错账）
+     *
+     * @param orderId   订单号
+     * @param payType  支付方式
+     * @param payAmount 网关实际支付金额（单位：元）
+     */
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    @TenantIgnore
+    public void paySuccess(String orderId, String payType, BigDecimal payAmount) {
+        AppStoreOrderQueryVo orderInfo = getOrderInfo(orderId, null);
+        if (orderInfo == null) {
+            log.warn("[paySuccess] 订单[{}]不存在，忽略支付回调", orderId);
+            return;
+        }
+        // 金额校验：网关实际支付金额必须与订单应付金额一致，防止金额被篡改或错账
+        if (payAmount == null || orderInfo.getPayPrice().compareTo(payAmount) != 0) {
+            log.error("[paySuccess] 支付金额不一致 orderId={} 订单金额={} 网关金额={}",
+                    orderId, orderInfo.getPayPrice(), payAmount);
+            return;
+        }
+        // 金额校验通过，委托给带幂等保护的支付成功处理
+        this.paySuccess(orderId, payType);
     }
 
     /**
@@ -790,7 +854,10 @@ public class AppStoreOrderServiceImpl extends ServiceImpl<StoreOrderMapper,Store
         this.gainUserIntegral(order);
 
 
-        //分销计算 todo
+        // 分销佣金结算（结算时机=确认收货）
+        if (getSettleMode() == 2) {
+            settleBrokerage(order.getId().toString());
+        }
 
     }
 
@@ -887,6 +954,125 @@ public class AppStoreOrderServiceImpl extends ServiceImpl<StoreOrderMapper,Store
         this.regressionCoupon(order, 0);
 
         storeOrderMapper.deleteById(order.getId());
+    }
+
+    // ===================== 分销佣金结算 =====================
+
+    /**
+     * 分销佣金结算：根据订单商品明细计算一级/二级佣金，写入上级 brokerage_price 并产生返佣账单。
+     * 结算时机由 store_brokerage_settle 决定（1=支付成功 / 2=确认收货），此处只做计算与发放。
+     */
+    private void settleBrokerage(String orderId) {
+        // 分销总开关
+        if (!brokerageEnabled()) {
+            return;
+        }
+        AppStoreOrderQueryVo order = getOrderInfo(orderId, null);
+        if (order == null || !OrderInfoEnum.PAY_STATUS_1.getValue().equals(order.getPaid())) {
+            return;
+        }
+        // 幂等：该订单已产生过返佣账单则跳过
+        if (brokerageBillExists(orderId)) {
+            return;
+        }
+        MemberUserDO buyer = userService.getUser(order.getUid());
+        if (buyer == null || buyer.getSpreadUid() == null) {
+            return;
+        }
+        Map<Integer, BigDecimal> comm = computeBrokerage(order);
+        BigDecimal l1 = comm.get(1);
+        BigDecimal l2 = comm.get(2);
+
+        // 一级佣金发放给直接推荐人
+        MemberUserDO p1 = userService.getUser(buyer.getSpreadUid());
+        if (p1 != null && !p1.getId().equals(buyer.getId()) && l1 != null && l1.compareTo(BigDecimal.ZERO) > 0) {
+            userService.incBrokerage(p1.getId(), l1);
+            BigDecimal balance = (p1.getBrokeragePrice() == null ? l1 : p1.getBrokeragePrice().add(l1));
+            billService.income(p1.getId(), "一级分销佣金", BillDetailEnum.CATEGORY_1.getValue(),
+                    BillDetailEnum.TYPE_2.getValue(), l1.doubleValue(), balance.doubleValue(),
+                    "订单" + orderId + "一级返佣", orderId, orderId);
+        }
+        // 二级佣金发放给推荐人的推荐人
+        if (brokerageTwoEnabled() && p1 != null && p1.getSpreadUid() != null) {
+            MemberUserDO p2 = userService.getUser(p1.getSpreadUid());
+            if (p2 != null && !p2.getId().equals(buyer.getId()) && l2 != null && l2.compareTo(BigDecimal.ZERO) > 0) {
+                userService.incBrokerage(p2.getId(), l2);
+                BigDecimal balance = (p2.getBrokeragePrice() == null ? l2 : p2.getBrokeragePrice().add(l2));
+                billService.income(p2.getId(), "二级分销佣金", BillDetailEnum.CATEGORY_1.getValue(),
+                        BillDetailEnum.TYPE_2.getValue(), l2.doubleValue(), balance.doubleValue(),
+                        "订单" + orderId + "二级返佣", orderId, orderId);
+            }
+        }
+    }
+
+    /**
+     * 按订单商品明细计算一级/二级佣金金额。
+     * 优先使用商品 SKU 上单独设置的 brokerage/brokerageTwo；若为 0 则按配置比例（百分比）乘以商品小计计算。
+     */
+    private Map<Integer, BigDecimal> computeBrokerage(AppStoreOrderQueryVo order) {
+        Map<Integer, BigDecimal> result = new HashMap<>(2);
+        result.put(1, BigDecimal.ZERO);
+        result.put(2, BigDecimal.ZERO);
+        List<StoreOrderCartInfoDO> cartList = storeOrderCartInfoService.list(
+                Wrappers.<StoreOrderCartInfoDO>lambdaQuery().eq(StoreOrderCartInfoDO::getOid, order.getId()));
+        BigDecimal ratio = getRatio();
+        BigDecimal ratio2 = getTwoRatio();
+        for (StoreOrderCartInfoDO item : cartList) {
+            StoreProductAttrValueDO attr = storeProductAttrValueService.getOne(
+                    Wrappers.<StoreProductAttrValueDO>lambdaQuery()
+                            .eq(StoreProductAttrValueDO::getProductId, item.getProductId())
+                            .eq(StoreProductAttrValueDO::getUnique, item.getUnique()));
+            BigDecimal qty = new BigDecimal(item.getNumber());
+            BigDecimal subtotal = item.getPrice().multiply(qty);
+            BigDecimal one;
+            if (attr != null && attr.getBrokerage() != null && attr.getBrokerage().compareTo(BigDecimal.ZERO) > 0) {
+                one = attr.getBrokerage().multiply(qty);
+            } else {
+                one = subtotal.multiply(ratio).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            }
+            BigDecimal two;
+            if (brokerageTwoEnabled() && attr != null && attr.getBrokerageTwo() != null
+                    && attr.getBrokerageTwo().compareTo(BigDecimal.ZERO) > 0) {
+                two = attr.getBrokerageTwo().multiply(qty);
+            } else {
+                two = subtotal.multiply(ratio2).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            }
+            result.put(1, result.get(1).add(one));
+            result.put(2, result.get(2).add(two));
+        }
+        return result;
+    }
+
+    private boolean brokerageEnabled() {
+        ConfigDO cfg = configService.getConfigByKey(SystemConfigConstants.STORE_BROKERAGE_OPEN);
+        return cfg != null && "1".equals(cfg.getValue());
+    }
+
+    private boolean brokerageTwoEnabled() {
+        ConfigDO cfg = configService.getConfigByKey(SystemConfigConstants.STORE_BROKERAGE_TWO);
+        return cfg != null && "1".equals(cfg.getValue());
+    }
+
+    private int getSettleMode() {
+        ConfigDO cfg = configService.getConfigByKey(SystemConfigConstants.STORE_BROKERAGE_SETTLE);
+        return cfg == null ? 1 : NumberUtil.parseInt(cfg.getValue(), 1);
+    }
+
+    private BigDecimal getRatio() {
+        ConfigDO cfg = configService.getConfigByKey(SystemConfigConstants.STORE_BROKERAGE_RATIO);
+        return (cfg == null || StrUtil.isBlank(cfg.getValue())) ? BigDecimal.ZERO : new BigDecimal(cfg.getValue());
+    }
+
+    private BigDecimal getTwoRatio() {
+        ConfigDO cfg = configService.getConfigByKey(SystemConfigConstants.STORE_BROKERAGE_TWO_RATIO);
+        return (cfg == null || StrUtil.isBlank(cfg.getValue())) ? BigDecimal.ZERO : new BigDecimal(cfg.getValue());
+    }
+
+    private boolean brokerageBillExists(String orderId) {
+        UserBillDO bill = billService.getOne(Wrappers.<UserBillDO>lambdaQuery()
+                .eq(UserBillDO::getExtendField, orderId)
+                .eq(UserBillDO::getType, BillDetailEnum.TYPE_2.getValue()));
+        return bill != null;
     }
 
 
